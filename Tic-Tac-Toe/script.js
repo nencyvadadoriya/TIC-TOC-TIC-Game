@@ -2,15 +2,20 @@
 
 !function(){
     let myBtnArray = [];
-    let toggle = false; // false = X starts, true = O's turn (wait, original logic was toggle = !toggle then toggle ? X : O)
+    let toggle = false; // false = X (Human/P1), true = O (Computer/P2)
     let checkRun = true;
     let result = Array(9).fill("");
-    const DELAY = 2000;
+    let isVsComputer = false;
     
     const overlay = document.getElementById('overlay');
     const winnerDisplay = document.getElementById('winner-display');
     const p1Info = document.getElementById('p1-info');
     const p2Info = document.getElementById('p2-info');
+    const p1Label = document.getElementById('p1-label');
+    const p2Label = document.getElementById('p2-label');
+    const playerNameInput = document.getElementById('player-name');
+    const pvpBtn = document.getElementById('pvp-mode');
+    const pvcBtn = document.getElementById('pvc-mode');
 
     Array(9).fill("").forEach((item,index) => {
         myBtnArray[index] = document.getElementById(`btn_${index+1}`);
@@ -23,6 +28,10 @@
     ];
 
     const updateStatus = () => {
+        const p1Name = playerNameInput.value || "Player X";
+        p1Label.innerText = p1Name;
+        p2Label.innerText = isVsComputer ? "Computer" : "Player O";
+
         if (toggle) {
             p1Info.classList.remove('active');
             p2Info.classList.add('active');
@@ -32,65 +41,150 @@
         }
     };
 
-    const CheckWinner = () => {
+    const CheckWinner = (currentBoard) => {
         let winner = null;
         let winningLine = null;
 
         winningCombinations.forEach(combination => {
             const [a, b, c] = combination;
-            if (result[a] && result[a] === result[b] && result[a] === result[c]) {
-                winner = result[a];
+            if (currentBoard[a] && currentBoard[a] === currentBoard[b] && currentBoard[a] === currentBoard[c]) {
+                winner = currentBoard[a];
                 winningLine = combination;
             }
         });
 
         if (winner) {
-            winningLine.forEach(index => {
-                myBtnArray[index].classList.add('winning-cell');
-            });
-            return winner;
+            return { winner, winningLine };
         }
 
-        if (result.every(cell => cell !== "")) {
-            return "Tie";
+        if (currentBoard.every(cell => cell !== "")) {
+            return { winner: "Tie" };
         }
 
         return null;
     };
 
+    const minimax = (board, depth, isMaximizing) => {
+        const res = CheckWinner(board);
+        if (res) {
+            if (res.winner === "O") return 10 - depth;
+            if (res.winner === "X") return depth - 10;
+            return 0;
+        }
+
+        if (isMaximizing) {
+            let bestScore = -Infinity;
+            for (let i = 0; i < 9; i++) {
+                if (board[i] === "") {
+                    board[i] = "O";
+                    let score = minimax(board, depth + 1, false);
+                    board[i] = "";
+                    bestScore = Math.max(score, bestScore);
+                }
+            }
+            return bestScore;
+        } else {
+            let bestScore = Infinity;
+            for (let i = 0; i < 9; i++) {
+                if (board[i] === "") {
+                    board[i] = "X";
+                    let score = minimax(board, depth + 1, true);
+                    board[i] = "";
+                    bestScore = Math.min(score, bestScore);
+                }
+            }
+            return bestScore;
+        }
+    };
+
+    const computerMove = () => {
+        if (!checkRun) return;
+        
+        let bestScore = -Infinity;
+        let move = -1;
+        for (let i = 0; i < 9; i++) {
+            if (result[i] === "") {
+                result[i] = "O";
+                let score = minimax(result, 0, false);
+                result[i] = "";
+                if (score > bestScore) {
+                    bestScore = score;
+                    move = i;
+                }
+            }
+        }
+
+        if (move !== -1) {
+            makeMove(move);
+        }
+    };
+
+    const makeMove = (index) => {
+        if (!result[index] && checkRun) {
+            const currentPlayer = toggle ? "O" : "X";
+            result[index] = currentPlayer;
+            
+            const iconName = currentPlayer === "X" ? "x" : "circle";
+            const iconClass = currentPlayer === "X" ? "x-icon" : "o-icon";
+            myBtnArray[index].innerHTML = `<i data-lucide="${iconName}" class="${iconClass}"></i>`;
+            lucide.createIcons();
+
+            const gameStatus = CheckWinner(result);
+            
+            if (gameStatus) {
+                checkRun = false;
+                if (gameStatus.winningLine) {
+                    gameStatus.winningLine.forEach(idx => {
+                        myBtnArray[idx].classList.add('winning-cell');
+                    });
+                }
+                setTimeout(() => {
+                    overlay.classList.add('show');
+                    if (gameStatus.winner === "Tie") {
+                        winnerDisplay.innerText = "It's a Tie!";
+                    } else {
+                        const winnerName = gameStatus.winner === "X" ? p1Label.innerText : p2Label.innerText;
+                        winnerDisplay.innerText = `${winnerName} Wins!`;
+                    }
+                }, 600);
+            } else {
+                toggle = !toggle;
+                updateStatus();
+                
+                // If it's now Computer's turn (O), trigger it automatically
+                if (isVsComputer && toggle) {
+                    setTimeout(computerMove, 600);
+                }
+            }
+        }
+    };
+
     myBtnArray.forEach((item, index) => {
         item.addEventListener("click", () => {
+            // Only allow move if it's Human's turn (X) or if playing vs Player
+            if (isVsComputer && toggle) return; 
+            
             if (!result[index] && checkRun) {
-                // Determine current player
-                const currentPlayer = toggle ? "O" : "X";
-                result[index] = currentPlayer;
-                
-                // Set Icon
-                const iconName = currentPlayer === "X" ? "x" : "circle";
-                const iconClass = currentPlayer === "X" ? "x-icon" : "o-icon";
-                item.innerHTML = `<i data-lucide="${iconName}" class="${iconClass}"></i>`;
-                lucide.createIcons();
-
-                const gameStatus = CheckWinner();
-                
-                if (gameStatus) {
-                    checkRun = false;
-                    setTimeout(() => {
-                        overlay.classList.add('show');
-                        if (gameStatus === "Tie") {
-                            winnerDisplay.innerText = "It's a Tie!";
-                        } else {
-                            winnerDisplay.innerText = `${gameStatus} Wins!`;
-                        }
-                    }, 600);
-                } else {
-                    toggle = !toggle;
-                    updateStatus();
-                }
+                makeMove(index);
             }
         });
     });
 
-    // Initial status set
+    pvpBtn.addEventListener('click', () => {
+        isVsComputer = false;
+        pvpBtn.classList.add('active');
+        pvcBtn.classList.remove('active');
+        updateStatus();
+    });
+
+    pvcBtn.addEventListener('click', () => {
+        isVsComputer = true;
+        pvcBtn.classList.add('active');
+        pvpBtn.classList.remove('active');
+        updateStatus();
+    });
+
+    playerNameInput.addEventListener('input', updateStatus);
+
     updateStatus();
 }();
