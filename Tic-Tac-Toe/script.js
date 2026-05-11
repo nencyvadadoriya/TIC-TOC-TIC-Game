@@ -5,7 +5,7 @@
     let toggle = false; // false = X (Human/P1), true = O (Computer/P2)
     let checkRun = true;
     let result = Array(9).fill("");
-    let isVsComputer = false;
+    let isVsComputer = true;
     
     const overlay = document.getElementById('overlay');
     const winnerDisplay = document.getElementById('winner-display');
@@ -14,8 +14,14 @@
     const p1Label = document.getElementById('p1-label');
     const p2Label = document.getElementById('p2-label');
     const playerNameInput = document.getElementById('player-name');
+    const player2NameInput = document.getElementById('player2-name');
+    const p2InputGroup = document.getElementById('p2-input-group');
     const pvpBtn = document.getElementById('pvp-mode');
     const pvcBtn = document.getElementById('pvc-mode');
+    const startScreen = document.getElementById('start-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const startGameBtn = document.getElementById('start-game-btn');
+    const backBtn = document.getElementById('back-to-setup');
 
     Array(9).fill("").forEach((item,index) => {
         myBtnArray[index] = document.getElementById(`btn_${index+1}`);
@@ -28,9 +34,11 @@
     ];
 
     const updateStatus = () => {
-        const p1Name = playerNameInput.value || "Player X";
+        const p1Name = playerNameInput.value || "Player 1";
+        const p2Name = isVsComputer ? "Computer" : (player2NameInput.value || "Player 2");
+        
         p1Label.innerText = p1Name;
-        p2Label.innerText = isVsComputer ? "Computer" : "Player O";
+        p2Label.innerText = p2Name;
 
         if (toggle) {
             p1Info.classList.remove('active');
@@ -143,7 +151,7 @@
                     if (gameStatus.winner === "Tie") {
                         winnerDisplay.innerText = "It's a Tie!";
                     } else {
-                        const winnerName = gameStatus.winner === "X" ? p1Label.innerText : p2Label.innerText;
+                        const winnerName = gameStatus.winner === "X" ? p1Label.innerText : (isVsComputer ? "Computer" : p2Label.innerText);
                         winnerDisplay.innerText = `${winnerName} Wins!`;
                     }
                 }, 600);
@@ -174,6 +182,7 @@
         isVsComputer = false;
         pvpBtn.classList.add('active');
         pvcBtn.classList.remove('active');
+        p2InputGroup.classList.remove('hidden');
         updateStatus();
     });
 
@@ -181,10 +190,31 @@
         isVsComputer = true;
         pvcBtn.classList.add('active');
         pvpBtn.classList.remove('active');
+        p2InputGroup.classList.add('hidden');
         updateStatus();
     });
 
     playerNameInput.addEventListener('input', updateStatus);
+    player2NameInput.addEventListener('input', updateStatus);
+
+    startGameBtn.addEventListener('click', () => {
+        startScreen.classList.remove('active');
+        gameScreen.classList.add('active');
+        updateStatus();
+    });
+
+    backBtn.addEventListener('click', () => {
+        gameScreen.classList.remove('active');
+        startScreen.classList.add('active');
+        // Reset game state when going back
+        result = Array(9).fill("");
+        toggle = false;
+        checkRun = true;
+        myBtnArray.forEach(btn => {
+            btn.innerHTML = "";
+            btn.classList.remove('winning-cell');
+        });
+    });
 
     updateStatus();
 }();
